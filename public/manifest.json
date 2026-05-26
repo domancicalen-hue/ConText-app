@@ -1,0 +1,17 @@
+{
+  "name": "ConText",
+  "short_name": "ConText",
+  "description": "Scrivi come pensi. Invia come vuoi apparire.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#07070e",
+  "background_color": "#07070e",
+  "lang": "it",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
