@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 // ══════════════════════════════════════════════════════════════════════════
 // SPLASH BIOLUMINESCENTE
 // ══════════════════════════════════════════════════════════════════════════
-function Splash({ onDone }) {
+function Splash({ onDone, duration=3800 }) {
   const canvasRef = useRef(null);
   const animRef   = useRef(null);
 
@@ -108,9 +108,9 @@ function Splash({ onDone }) {
     }
     draw();
 
-    const timer=setTimeout(()=>{clearInterval(burstInterval);onDone();},3800);
+    const timer=setTimeout(()=>{clearInterval(burstInterval);onDone();},duration);
     return()=>{cancelAnimationFrame(animRef.current);clearInterval(burstInterval);clearTimeout(timer);};
-  },[]);
+  },[duration,onDone]);
 
   return (
     <div style={{position:"fixed",inset:0,zIndex:999,background:"#07070e",overflow:"hidden"}}>
@@ -204,6 +204,9 @@ function MainApp() {
   const [isPro, setIsPro]         = useState(false);
   const [freeUsed, setFreeUsed]   = useState(0);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showInstall, setShowInstall] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [installStatus, setInstallStatus] = useState("");
   const [history, setHistory]     = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const textareaRef               = useRef(null);
@@ -222,6 +225,24 @@ function MainApp() {
   },[]);
 
   useEffect(()=>{ if(step===1) setTimeout(()=>textareaRef.current?.focus(),100); },[step]);
+
+  useEffect(()=>{
+    const onBeforeInstallPrompt = (event)=>{
+      event.preventDefault();
+      setDeferredPrompt(event);
+      setInstallStatus("ConText può essere installata su questo dispositivo.");
+    };
+    const onAppInstalled = ()=>{
+      setDeferredPrompt(null);
+      setInstallStatus("ConText è stata installata correttamente.");
+    };
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", onAppInstalled);
+    return ()=>{
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", onAppInstalled);
+    };
+  },[]);
 
   function pickScenario(id){ setScenario(id); setText(""); setResult(""); setActiveTone(null); setStep(1); }
   function skipScenario()  { setScenario(null); setText(""); setResult(""); setActiveTone(null); setStep(1); }
@@ -259,12 +280,25 @@ function MainApp() {
     setLoading(false);
   }
 
+  async function installApp(){
+    if(!deferredPrompt){
+      setInstallStatus("Se il pulsante automatico non compare, usa le istruzioni qui sotto per aggiungere ConText alla schermata Home o al desktop.");
+      return;
+    }
+    deferredPrompt.prompt();
+    const choice = await deferredPrompt.userChoice;
+    if(choice?.outcome === "accepted") setInstallStatus("Installazione avviata. Troverai ConText tra le tue app.");
+    else setInstallStatus("Installazione annullata. Puoi riprovare quando vuoi.");
+    setDeferredPrompt(null);
+  }
+
   function copyResult(){ navigator.clipboard.writeText(result); setCopied(true); setTimeout(()=>setCopied(false),2000); }
 
   // ── CSS ────────────────────────────────────────────────────────────────
   const css = `
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     :root{--bg:#07070e;--bg2:#0f0f1c;--bg3:#161626;--gold:#c8a84b;--teal:#3ecfbe;--red:#e05c6b;--text:#f0ece4;--sub:#9995a8;--border:#1e1e32;}
+    html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
     body{background:var(--bg);}
     @keyframes fadeUp {from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
     @keyframes logoBreath{from{filter:drop-shadow(0 0 10px rgba(60,230,180,.4)) drop-shadow(0 0 28px rgba(90,200,255,.2))}to{filter:drop-shadow(0 0 24px rgba(60,230,180,.75)) drop-shadow(0 0 55px rgba(90,200,255,.4))}}
@@ -288,7 +322,15 @@ function MainApp() {
     .ex-btn{transition:all .15s;}
     .ex-btn:hover{color:var(--sub)!important;border-color:#2e2e44!important;}
     .icon-btn{transition:all .15s;}
-    .icon-btn:hover{color:var(--gold)!important;}
+    .icon-btn:hover{color:var(--gold)!important;border-color:#c8a84b55!important;}
+    .top-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
+    .top-link{background:transparent;border:1px solid var(--border);color:var(--sub);padding:6px 10px;border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-decoration:none;line-height:1;transition:all .15s;}
+    .top-link:hover{color:var(--gold);border-color:#c8a84b55;}
+    @media (max-width:560px){
+      header{padding:12px 14px!important;align-items:flex-start!important;gap:10px!important;flex-wrap:wrap;}
+      .top-actions{width:100%;max-width:none;gap:5px;justify-content:flex-start;}
+      .top-link{font-size:8px;padding:6px 8px;}
+    }
   `;
 
   const Logo = ({size=24}) => (
@@ -310,7 +352,9 @@ function MainApp() {
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:300,color:"var(--text)",lineHeight:1.1}}>Con<em style={{color:"var(--gold)",fontWeight:400}}>Text</em></div>
         </div>
       </div>
-      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+      <div className="top-actions">
+        <a className="top-link" href="/guida.html" target="_blank" rel="noopener noreferrer" title="Apri la guida completa di ConText">Guida</a>
+        <button className="top-link" onClick={()=>setShowInstall(true)} title="Installa ConText come app">Installa</button>
         {isPro&&(
           <button className="icon-btn" onClick={()=>setShowHistory(h=>!h)} style={{background:showHistory?"#c8a84b18":"transparent",border:"1px solid "+(showHistory?"#c8a84b40":"var(--border)"),color:showHistory?"var(--gold)":"var(--sub)",padding:"6px 12px",borderRadius:3,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",letterSpacing:".1em"}}>
             ↺ Storia
@@ -321,8 +365,8 @@ function MainApp() {
             {remaining}/{FREE_LIMIT}
           </div>
         )}
-        <button onClick={()=>setIsPro(p=>!p)} style={{background:isPro?"var(--gold)":"transparent",border:"1px solid var(--gold)",color:isPro?"#07070e":"var(--gold)",padding:"6px 14px",borderRadius:3,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",letterSpacing:".12em",fontWeight:isPro?500:300,transition:"all .2s"}}>
-          {isPro?"✓ PRO":"PRO →"}
+        <button onClick={()=>setShowPaywall(true)} style={{background:isPro?"var(--gold)":"transparent",border:"1px solid var(--gold)",color:isPro?"#07070e":"var(--gold)",padding:"6px 14px",borderRadius:3,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",letterSpacing:".12em",fontWeight:isPro?500:300,transition:"all .2s"}}>
+          {isPro?"✓ CREDITI":"CREDITI"}
         </button>
       </div>
     </header>
@@ -398,7 +442,7 @@ function MainApp() {
           </div>
           <div style={{display:"flex",gap:6}}>
             {EXAMPLES.map((ex,i)=>(
-              <button key={i} className="ex-btn" onClick={()=>setText(ex)} style={{background:"transparent",border:"1px solid #1e1e32",borderRadius:2,color:"#3a3a52",fontSize:"9px",padding:"4px 9px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}}>
+              <button key={i} className="ex-btn" onClick={()=>setText(ex)} style={{background:"transparent",border:"1px solid #1e1e32",borderRadius:2,color:"#8f8fa8",fontSize:"9px",padding:"4px 9px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}}>
                 es.{i+1}
               </button>
             ))}
@@ -418,7 +462,7 @@ function MainApp() {
       <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderLeft:"3px solid var(--gold)",borderRadius:4,padding:"14px 16px",marginBottom:24}}>
         <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".2em",marginBottom:6}}>IL TUO MESSAGGIO</div>
         <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:"var(--sub)",fontStyle:"italic",lineHeight:1.6}}>"{input}"</p>
-        <button onClick={()=>setStep(1)} style={{background:"transparent",border:"none",color:"#3a3a52",fontSize:"10px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",marginTop:8,letterSpacing:".1em",padding:0,transition:"color .15s"}}
+        <button onClick={()=>setStep(1)} style={{background:"transparent",border:"none",color:"#8f8fa8",fontSize:"10px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",marginTop:8,letterSpacing:".1em",padding:0,transition:"color .15s"}}
           onMouseEnter={e=>e.target.style.color="var(--sub)"}
           onMouseLeave={e=>e.target.style.color="#3a3a52"}>
           ← modifica
@@ -439,14 +483,14 @@ function MainApp() {
       </div>
 
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".25em",textTransform:"uppercase"}}>Toni Pro</div>
-        {!isPro&&<div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"#3a3a52"}}>— tocca per sbloccare</div>}
+        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".25em",textTransform:"uppercase"}}>Toni avanzati</div>
+        {!isPro&&<div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"#8f8fa8"}}>— usa crediti per sbloccare</div>}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
         {ALL_TONES.filter(t=>t.pro).map(tone=>(
           <button key={tone.id} className="tone-btn" onClick={()=>transform(tone)} style={{background:isPro?`${tone.color}10`:"var(--bg2)",border:`1px solid ${isPro?tone.color+"40":"var(--border)"}`,borderRadius:4,padding:"16px 12px",cursor:"pointer",textAlign:"center",opacity:isPro?1:.5,position:"relative"}}>
-            {!isPro&&<div style={{position:"absolute",top:5,right:5,fontFamily:"'JetBrains Mono',monospace",fontSize:"7px",color:"var(--gold)",border:"1px solid #c8a84b30",padding:"2px 5px",borderRadius:2}}>PRO</div>}
-            <div style={{fontSize:24,color:isPro?tone.color:"#3a3a52",marginBottom:8,fontFamily:"'JetBrains Mono',monospace"}}>{tone.icon}</div>
+            {!isPro&&<div style={{position:"absolute",top:5,right:5,fontFamily:"'JetBrains Mono',monospace",fontSize:"7px",color:"var(--gold)",border:"1px solid #c8a84b30",padding:"2px 5px",borderRadius:2}}>CREDITI</div>}
+            <div style={{fontSize:24,color:isPro?tone.color:"#8f8fa8",marginBottom:8,fontFamily:"'JetBrains Mono',monospace"}}>{tone.icon}</div>
             <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:isPro?"var(--text)":"#3a3a52",fontWeight:600}}>{tone.label}</div>
           </button>
         ))}
@@ -488,8 +532,8 @@ function MainApp() {
             + NUOVO MESSAGGIO
           </button>
           <div style={{marginTop:18,padding:"12px 16px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:3}}>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"#3a3a52",letterSpacing:".2em",marginBottom:4}}>ORIGINALE</div>
-            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,color:"#44445a",fontStyle:"italic"}}>"{input}"</p>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"#8f8fa8",letterSpacing:".2em",marginBottom:4}}>ORIGINALE</div>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,color:"#b7b7c8",fontStyle:"italic"}}>"{input}"</p>
           </div>
         </>
       )}
@@ -523,25 +567,58 @@ function MainApp() {
     </div>
   );
 
+
+  // ── INSTALL PANEL ───────────────────────────────────────────────────────
+  const installPanel = showInstall&&(
+    <div style={{position:"fixed",inset:0,background:"#000000e8",zIndex:95,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowInstall(false)}>
+      <div className="fade" onClick={e=>e.stopPropagation()} style={{background:"#0c0c18",border:"1px solid #3ce6b433",borderRadius:6,padding:28,maxWidth:520,width:"100%",boxShadow:"0 20px 80px rgba(0,0,0,.45)"}}>
+        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--teal)",letterSpacing:".3em",marginBottom:10}}>◆ APP INSTALLABILE</div>
+        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:300,color:"var(--text)",marginBottom:10}}>Porta ConText sul telefono o sul desktop</h2>
+        <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"#c2c2d4",lineHeight:1.8,marginBottom:18}}>ConText non richiede App Store: puoi aggiungerla come app installabile dal browser. Resta leggera, veloce e sempre raggiungibile.</p>
+        <button onClick={installApp} style={{width:"100%",background:"var(--teal)",color:"#07100e",border:"none",borderRadius:3,padding:14,fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",letterSpacing:".18em",fontWeight:700,cursor:"pointer",marginBottom:14}}>
+          {deferredPrompt ? "INSTALLA ORA" : "MOSTRA ISTRUZIONI"}
+        </button>
+        {installStatus&&<div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--teal)",lineHeight:1.7,background:"#3ce6b40c",border:"1px solid #3ce6b422",padding:"10px 12px",borderRadius:3,marginBottom:14}}>{installStatus}</div>}
+        <div style={{display:"grid",gap:10}}>
+          <div style={{background:"#111120",border:"1px solid var(--border)",borderRadius:3,padding:13}}>
+            <strong style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--gold)",letterSpacing:".12em"}}>iPhone / iPad</strong>
+            <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"#c2c2d4",lineHeight:1.7,marginTop:7}}>Apri ConText in Safari, tocca Condividi, poi scegli “Aggiungi alla schermata Home”.</p>
+          </div>
+          <div style={{background:"#111120",border:"1px solid var(--border)",borderRadius:3,padding:13}}>
+            <strong style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--gold)",letterSpacing:".12em"}}>Android</strong>
+            <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"#c2c2d4",lineHeight:1.7,marginTop:7}}>Apri ConText in Chrome, tocca il menu con i tre puntini e scegli “Installa app” o “Aggiungi a schermata Home”.</p>
+          </div>
+          <div style={{background:"#111120",border:"1px solid var(--border)",borderRadius:3,padding:13}}>
+            <strong style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--gold)",letterSpacing:".12em"}}>Desktop</strong>
+            <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"#c2c2d4",lineHeight:1.7,marginTop:7}}>Su Chrome o Edge cerca l’icona di installazione nella barra indirizzi, oppure apri il menu del browser e scegli “Installa ConText”.</p>
+          </div>
+        </div>
+        <button onClick={()=>setShowInstall(false)} style={{width:"100%",marginTop:16,background:"transparent",color:"#c2c2d4",border:"1px solid var(--border)",borderRadius:3,padding:11,fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",cursor:"pointer"}}>
+          chiudi
+        </button>
+      </div>
+    </div>
+  );
+
   // ── PAYWALL ────────────────────────────────────────────────────────────
   const paywall = showPaywall&&(
     <div style={{position:"fixed",inset:0,background:"#000000e8",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowPaywall(false)}>
       <div className="fade" onClick={e=>e.stopPropagation()} style={{background:"#0c0c18",border:"1px solid #c8a84b40",borderRadius:4,padding:32,maxWidth:400,width:"100%"}}>
-        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".3em",marginBottom:10}}>◆ CONTEXT PRO</div>
-        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:300,color:"var(--text)",marginBottom:10}}>Sblocca i toni avanzati</h2>
-        <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",lineHeight:1.8,marginBottom:22}}>Assertivo, Empatico, Socratico, Stoico,<br/>Strategico, Ironico — uso illimitato.</p>
+        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".3em",marginBottom:10}}>◆ CREDITI CONTEXT</div>
+        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:300,color:"var(--text)",marginBottom:10}}>Sblocca i toni avanzati con i crediti</h2>
+        <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",lineHeight:1.8,marginBottom:22}}>Nessun abbonamento. Nessuna scadenza.<br/>Acquisti crediti e li usi quando vuoi.</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:22}}>
-          {[["◆","9 toni"],["∿","Stile personale"],["↺","Cronologia"],["∞","Illimitato"]].map(([ic,lb])=>(
+          {[["◆","9 toni"],["∿","Stile personale"],["↺","Cronologia"],["∞","Senza scadenza"]].map(([ic,lb])=>(
             <div key={lb} style={{background:"#111120",border:"1px solid var(--border)",borderRadius:3,padding:12}}>
               <span style={{color:"var(--gold)",display:"block",fontSize:14,marginBottom:5,fontFamily:"'JetBrains Mono',monospace"}}>{ic}</span>
-              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"#777",letterSpacing:".08em"}}>{lb}</span>
+              <span style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"#a8a8b8",letterSpacing:".08em"}}>{lb}</span>
             </div>
           ))}
         </div>
-        <button onClick={()=>{setIsPro(true);setShowPaywall(false);}} style={{width:"100%",background:"var(--gold)",color:"#07070e",border:"none",borderRadius:3,padding:14,fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",letterSpacing:".2em",fontWeight:700,cursor:"pointer",marginBottom:10,transition:"opacity .2s"}}
+        <button onClick={()=>{window.open('/guida.html','_blank','noopener,noreferrer');setShowPaywall(false);}} style={{width:"100%",background:"var(--gold)",color:"#07070e",border:"none",borderRadius:3,padding:14,fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",letterSpacing:".2em",fontWeight:700,cursor:"pointer",marginBottom:10,transition:"opacity .2s"}}
           onMouseEnter={e=>e.target.style.opacity=".85"}
           onMouseLeave={e=>e.target.style.opacity="1"}>
-          ATTIVA PRO · €4,90/MESE
+          SCOPRI I PACCHETTI CREDITI
         </button>
         <button onClick={()=>setShowPaywall(false)} style={{width:"100%",background:"transparent",color:"var(--sub)",border:"1px solid var(--border)",borderRadius:3,padding:11,fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",cursor:"pointer"}}>
           continua gratis
@@ -554,7 +631,7 @@ function MainApp() {
     <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
       <style>{css}</style>
       {header}
-      {isPro&&step===0&&<div style={{textAlign:"center",padding:"9px",background:"#c8a84b0d",borderBottom:"1px solid #c8a84b20",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--gold)",letterSpacing:".2em"}}>◆ MODALITÀ PRO — USO ILLIMITATO</div>}
+      {isPro&&step===0&&<div style={{textAlign:"center",padding:"9px",background:"#c8a84b0d",borderBottom:"1px solid #c8a84b20",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--gold)",letterSpacing:".2em"}}>◆ MODALITÀ CREDITI — TONI AVANZATI ATTIVI</div>}
       {stepBar}
       <div style={{paddingBottom:40}}>
         {step===0&&step0}
@@ -563,6 +640,7 @@ function MainApp() {
         {step===3&&step3}
       </div>
       {historyPanel}
+      {installPanel}
       {paywall}
     </div>
   );
@@ -573,9 +651,16 @@ function MainApp() {
 // ══════════════════════════════════════════════════════════════════════════
 export default function App() {
   const [ready, setReady] = useState(false);
+  const [splashDuration] = useState(()=>{
+    try{return localStorage.getItem("ctx_seen_splash") ? 1500 : 3800;}catch{return 3800;}
+  });
+  function finishSplash(){
+    try{localStorage.setItem("ctx_seen_splash","1");}catch{}
+    setReady(true);
+  }
   return (
     <>
-      {!ready && <Splash onDone={()=>setReady(true)}/>}
+      {!ready && <Splash duration={splashDuration} onDone={finishSplash}/>}
       {ready  && <MainApp/>}
     </>
   );
