@@ -1,4 +1,4 @@
-const CACHE = 'context-v4-credits-page';
+const CACHE = 'context-v5-social-trust';
 const STATIC = [
   '/',
   '/index.html',
@@ -6,7 +6,9 @@ const STATIC = [
   '/crediti.html',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
-  '/icons/favicon-64.png'
+  '/icons/favicon-64.png',
+  '/social/logo-tiktok-profile-1080.png',
+  '/social/tiktok-cover-1920x1080.png'
 ];
 
 self.addEventListener('install', e => {

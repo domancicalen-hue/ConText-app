@@ -394,7 +394,10 @@ function MainApp() {
   const step0 = (
     <div className="fade" style={{maxWidth:680,margin:"0 auto",padding:"28px 16px"}}>
       <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(25px,5vw,38px)",fontWeight:300,color:"var(--text)",marginBottom:6,lineHeight:1.1}}>Scrivi quello che pensi. <span style={{color:"var(--gold)"}}>ConText lo dice nel modo giusto.</span></h2>
-      <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",marginBottom:14,lineHeight:1.7}}>Trasforma qualsiasi messaggio nel tono perfetto per la situazione. In italiano. In pochi secondi. Prova senza registrarti: 3 trasformazioni gratis ogni giorno.</p>
+      <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",marginBottom:12,lineHeight:1.7}}>Trasforma qualsiasi messaggio nel tono perfetto per la situazione. In italiano. In pochi secondi. Prova senza registrarti: 3 trasformazioni gratis ogni giorno.</p>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
+        {["3 gratis ogni giorno","Nessun account per provare","Crediti senza abbonamento"].map(t=><span key={t} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--teal)",border:"1px solid #3ecfbe24",borderRadius:999,padding:"6px 9px",background:"#3ecfbe0a",letterSpacing:".08em"}}>{t}</span>)}
+      </div>
       <div style={{background:"var(--bg2)",border:"1px solid #3ecfbe22",borderRadius:4,padding:"14px 16px",marginBottom:22}}>
         <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--teal)",letterSpacing:".2em",marginBottom:8}}>ESEMPIO PRIMA / DOPO</div>
         <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"#8f8fa8",fontStyle:"italic",lineHeight:1.5,marginBottom:8}}>“Non avete ancora pagato. È passato troppo tempo e questa cosa non va bene.”</p>
