@@ -1,8 +1,9 @@
-const CACHE = 'context-v3';
+const CACHE = 'context-v4-credits-page';
 const STATIC = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/crediti.html',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/favicon-64.png'
