@@ -1,9 +1,12 @@
-const CACHE = 'context-v5-social-trust';
+const CACHE = 'context-v9-blog';
 const STATIC = [
   '/',
   '/index.html',
   '/manifest.json',
   '/crediti.html',
+  '/blog/',
+  '/blog/index.html',
+  '/blog/rispondere-messaggio-difficile-senza-sembrare-aggressivo.html',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/favicon-64.png',

@@ -353,6 +353,7 @@ function MainApp() {
         </div>
       </div>
       <div className="top-actions">
+        <a className="top-link" href="/blog/index.html" target="_blank" rel="noopener noreferrer" title="Leggi il blog ConText">Blog</a>
         <a className="top-link" href="/guida.html" target="_blank" rel="noopener noreferrer" title="Apri la guida completa di ConText">Guida</a>
         <button className="top-link" onClick={()=>setShowInstall(true)} title="Installa ConText come app">Installa</button>
         {isPro&&(
