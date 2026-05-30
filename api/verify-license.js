@@ -8,6 +8,26 @@ export default async function handler(req, res) {
     return res.status(400).json({ valid: false, error: 'Codice licenza mancante' });
   }
 
+  const normalizedLicenseKey = String(licenseKey).trim().toUpperCase();
+  const lifetimeCodes = String(process.env.FREE_LIFETIME_CODES || '')
+    .split(',')
+    .map((code) => code.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (lifetimeCodes.includes(normalizedLicenseKey)) {
+    return res.status(200).json({
+      valid: true,
+      licenseKey: normalizedLicenseKey,
+      purchase: {
+        email: null,
+        productName: 'ConText Pro Lifetime',
+        refunded: false,
+        chargebacked: false,
+        source: 'lifetime-code',
+      }
+    });
+  }
+
   const gumroadProductPermalink = process.env.GUMROAD_PRODUCT_PERMALINK;
   if (!gumroadProductPermalink) {
     return res.status(501).json({
