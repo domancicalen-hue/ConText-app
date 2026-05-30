@@ -221,6 +221,7 @@ function MainApp() {
       const d=localStorage.getItem("ctx_d");
       if(h) setHistory(JSON.parse(h));
       if(u&&d===new Date().toDateString()) setFreeUsed(parseInt(u));
+      if(localStorage.getItem("ctx_pro")==="1") setIsPro(true);
     }catch{}
   },[]);
 
@@ -355,6 +356,7 @@ function MainApp() {
       <div className="top-actions">
         <a className="top-link" href="/blog/index.html" target="_blank" rel="noopener noreferrer" title="Leggi il blog ConText">Blog</a>
         <a className="top-link" href="/guida.html" target="_blank" rel="noopener noreferrer" title="Apri la guida completa di ConText">Guida</a>
+        <a className="top-link" href="/attiva.html" target="_blank" rel="noopener noreferrer" title="Attiva un codice ConText">Attiva</a>
         <button className="top-link" onClick={()=>setShowInstall(true)} title="Installa ConText come app">Installa</button>
         {isPro&&(
           <button className="icon-btn" onClick={()=>setShowHistory(h=>!h)} style={{background:showHistory?"#c8a84b18":"transparent",border:"1px solid "+(showHistory?"#c8a84b40":"var(--border)"),color:showHistory?"var(--gold)":"var(--sub)",padding:"6px 12px",borderRadius:3,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",letterSpacing:".1em"}}>
@@ -397,12 +399,24 @@ function MainApp() {
       <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(25px,5vw,38px)",fontWeight:300,color:"var(--text)",marginBottom:6,lineHeight:1.1}}>Scrivi quello che pensi. <span style={{color:"var(--gold)"}}>ConText lo dice nel modo giusto.</span></h2>
       <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",marginBottom:12,lineHeight:1.7}}>Trasforma qualsiasi messaggio nel tono perfetto per la situazione. In italiano. In pochi secondi. Prova senza registrarti: 3 trasformazioni gratis ogni giorno.</p>
       <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
-        {["3 gratis ogni giorno","Nessun account per provare","Crediti senza abbonamento"].map(t=><span key={t} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--teal)",border:"1px solid #3ecfbe24",borderRadius:999,padding:"6px 9px",background:"#3ecfbe0a",letterSpacing:".08em"}}>{t}</span>)}
+        {["3 gratis ogni giorno","Nessun account per provare","Crediti senza abbonamento","Codice attivazione pronto"].map(t=><span key={t} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--teal)",border:"1px solid #3ecfbe24",borderRadius:999,padding:"6px 9px",background:"#3ecfbe0a",letterSpacing:".08em"}}>{t}</span>)}
       </div>
       <div style={{background:"var(--bg2)",border:"1px solid #3ecfbe22",borderRadius:4,padding:"14px 16px",marginBottom:22}}>
         <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--teal)",letterSpacing:".2em",marginBottom:8}}>ESEMPIO PRIMA / DOPO</div>
         <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"#8f8fa8",fontStyle:"italic",lineHeight:1.5,marginBottom:8}}>“Non avete ancora pagato. È passato troppo tempo e questa cosa non va bene.”</p>
         <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:"var(--text)",lineHeight:1.55,borderLeft:"2px solid var(--gold)",paddingLeft:12}}>“Vi scrivo per sollecitare gentilmente il saldo della fattura in sospeso. Resto disponibile per eventuali chiarimenti, ma vi chiedo di procedere appena possibile.”</p>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:22}}>
+        {[
+          ["Privacy", "Provi senza account e la cronologia resta sul dispositivo."],
+          ["Lavoro", "Pensato per clienti, recensioni, colleghi e richieste delicate."],
+          ["Premium", "I toni avanzati saranno collegati a codici/crediti acquistati."]
+        ].map(([title,body])=>(
+          <div key={title} style={{background:"#0f0f1caa",border:"1px solid var(--border)",borderRadius:4,padding:"12px 13px"}}>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".16em",marginBottom:6}}>{title.toUpperCase()}</div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--sub)",lineHeight:1.65}}>{body}</div>
+          </div>
+        ))}
       </div>
       <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",marginBottom:24,lineHeight:1.7}}>Scegli la situazione oppure scrivi direttamente.</p>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:10,marginBottom:20}}>
@@ -633,6 +647,9 @@ function MainApp() {
         <button onClick={()=>setShowPaywall(false)} style={{width:"100%",background:"transparent",color:"var(--sub)",border:"1px solid var(--border)",borderRadius:3,padding:11,fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",cursor:"pointer"}}>
           torna all'app gratis
         </button>
+        <button onClick={()=>{window.open('/attiva.html','_blank','noopener,noreferrer');setShowPaywall(false);}} style={{width:"100%",marginTop:8,background:"transparent",color:"var(--gold)",border:"1px solid #c8a84b33",borderRadius:3,padding:11,fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",cursor:"pointer"}}>
+          ho già un codice
+        </button>
       </div>
     </div>
   );
@@ -652,6 +669,12 @@ function MainApp() {
       {historyPanel}
       {installPanel}
       {paywall}
+      <footer style={{borderTop:"1px solid var(--border)",padding:"18px 20px 26px",textAlign:"center",fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"#5d5a70",lineHeight:1.8}}>
+        <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{color:"var(--sub)",margin:"0 6px"}}>Privacy</a>
+        <a href="/termini.html" target="_blank" rel="noopener noreferrer" style={{color:"var(--sub)",margin:"0 6px"}}>Termini</a>
+        <a href="/contatti.html" target="_blank" rel="noopener noreferrer" style={{color:"var(--sub)",margin:"0 6px"}}>Contatti</a>
+        <span style={{display:"block",marginTop:6}}>ConText non sostituisce consulenza legale o professionale: aiuta a formulare meglio i messaggi.</span>
+      </footer>
     </div>
   );
 }
