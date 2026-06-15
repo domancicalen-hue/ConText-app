@@ -1,4 +1,4 @@
-const CACHE = 'context-v18-user-logo-menu-20260615';
+const CACHE = 'context-v19-social-preview-20260615';
 const STATIC = [
   '/',
   '/index.html',
@@ -20,7 +20,8 @@ const STATIC = [
   '/icons/context-ui-icon-512-20260611-clean.png',
   '/social/logo-square-512.png',
   '/social/logo-tiktok-profile-1080.png',
-  '/social/tiktok-cover-1920x1080.png'
+  '/social/tiktok-cover-1920x1080.png',
+  '/social/context-share-20260615.png'
 ];
 
 self.addEventListener('install', e => {
