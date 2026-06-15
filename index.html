@@ -41,7 +41,7 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () =>
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker.register('/sw.js?v=before-after-balance-20260615', { updateViaCache: 'none' })
             .then(r => console.log('ConText SW:', r.scope))
             .catch(e => console.warn('SW error:', e))
         );

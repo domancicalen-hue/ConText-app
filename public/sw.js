@@ -1,4 +1,4 @@
-const CACHE = 'context-v19-social-preview-20260615';
+const CACHE = 'context-v20-before-after-balance-20260615';
 const STATIC = [
   '/',
   '/index.html',
@@ -59,15 +59,14 @@ self.addEventListener('fetch', e => {
   }
 
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached && !url.pathname.startsWith('/icons/') && !url.pathname.startsWith('/social/')) return cached;
-      return fetch(e.request).then(response => {
+    fetch(e.request)
+      .then(response => {
         if (url.origin === self.location.origin && response.ok) {
           const copy = response.clone();
           caches.open(CACHE).then(cache => cache.put(e.request, copy));
         }
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(e.request))
   );
 });
