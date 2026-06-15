@@ -118,27 +118,7 @@ function Splash({ onDone, duration=3800 }) {
       <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
         <div style={{background:"rgba(7,7,14,.72)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",border:"1px solid rgba(60,230,180,.12)",borderRadius:20,padding:"44px 52px 40px",display:"flex",flexDirection:"column",alignItems:"center",boxShadow:"0 8px 60px rgba(0,0,0,.6)",maxWidth:340,width:"85%"}}>
           <div style={{marginBottom:22,animation:"logoBreath 2.5s ease-in-out infinite alternate"}}>
-            <svg width="72" height="72" viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="24" r="22" fill="rgba(60,230,180,.05)"/>
-              <path d="M36 8 C20 8 8 16 8 24 C8 32 20 40 36 40 L36 34 C23 34 14 29.5 14 24 C14 18.5 23 14 36 14 Z" fill="none" stroke="url(#lg)" strokeWidth="1.8"/>
-              <circle cx="30" cy="24" r="2.8" fill="url(#dg)"/>
-              <circle cx="30" cy="24" r="5.5" fill="none" stroke="rgba(60,230,180,.3)" strokeWidth=".5"/>
-              <line x1="36" y1="8"  x2="41" y2="8"  stroke="url(#lg)" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="36" y1="40" x2="41" y2="40" stroke="url(#lg)" strokeWidth="1.8" strokeLinecap="round"/>
-              <line x1="8"  y1="24" x2="44" y2="24" stroke="rgba(60,230,180,.2)" strokeWidth=".4" strokeDasharray="2 3"/>
-              <line x1="24" y1="5"  x2="24" y2="43" stroke="rgba(60,230,180,.2)" strokeWidth=".4" strokeDasharray="2 3"/>
-              <defs>
-                <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%"  stopColor="#3ce6b4"/>
-                  <stop offset="50%" stopColor="#c8a84b"/>
-                  <stop offset="100%" stopColor="#5ac8ff"/>
-                </linearGradient>
-                <radialGradient id="dg" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%"   stopColor="#ffffff"/>
-                  <stop offset="100%" stopColor="#3ce6b4"/>
-                </radialGradient>
-              </defs>
-            </svg>
+            <img src="/icons/context-app-icon-20260611-clean.png" alt="ConText" width="94" height="94" style={{display:"block",objectFit:"contain",filter:"drop-shadow(0 0 18px rgba(255,204,0,.38))"}} />
           </div>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:46,fontWeight:300,letterSpacing:".06em",lineHeight:1,marginBottom:16,animation:"fadeUp .8s ease .15s both",background:"linear-gradient(135deg,#3ce6b4 0%,#e8d890 50%,#5ac8ff 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>
             ConText
@@ -201,7 +181,10 @@ function MainApp() {
   const [result, setResult]       = useState("");
   const [loading, setLoading]     = useState(false);
   const [copied, setCopied]       = useState(false);
+  const [shareStatus, setShareStatus] = useState("");
   const [isPro, setIsPro]         = useState(false);
+  const [credits, setCredits]     = useState(0);
+  const [hasCreditLedger, setHasCreditLedger] = useState(false);
   const [freeUsed, setFreeUsed]   = useState(0);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showInstall, setShowInstall] = useState(false);
@@ -212,7 +195,43 @@ function MainApp() {
   const textareaRef               = useRef(null);
 
   const FREE_LIMIT = 3;
+  const APP_SHARE_URL = "https://con-text-app.vercel.app";
+  const APP_SHARE_TEXT = "Prova ConText: trasforma i tuoi messaggi nel tono giusto, in pochi secondi.";
   const remaining  = FREE_LIMIT - freeUsed;
+
+  function refreshCreditState(){
+    try{
+      const storedCredits = localStorage.getItem("ctx_credits");
+      setHasCreditLedger(storedCredits !== null);
+      setCredits(Math.max(0, parseInt(storedCredits || "0", 10) || 0));
+      setIsPro(localStorage.getItem("ctx_pro")==="1");
+    }catch{}
+  }
+
+  function reserveCreditForGeneration(tone){
+    if(!(tone.pro&&isPro&&hasCreditLedger)) return {reserved:false, blocked:false, previous:credits};
+    let current=credits;
+    try{ current=Math.max(0, parseInt(localStorage.getItem("ctx_credits") || String(credits), 10) || 0); }catch{}
+    if(current<=0){
+      setCredits(0);
+      try{localStorage.setItem("ctx_credits","0");}catch{}
+      setShowPaywall(true);
+      return {reserved:false, blocked:true, previous:0};
+    }
+    const nextCredits=Math.max(0, current-1);
+    setCredits(nextCredits);
+    try{localStorage.setItem("ctx_credits",String(nextCredits));}catch{}
+    return {reserved:true, blocked:false, previous:current};
+  }
+
+  function refundReservedCredit(reservation){
+    if(!reservation?.reserved) return;
+    let current=credits;
+    try{ current=Math.max(0, parseInt(localStorage.getItem("ctx_credits") || "0", 10) || 0); }catch{}
+    const restored=Math.min(current+1, reservation.previous);
+    setCredits(restored);
+    try{localStorage.setItem("ctx_credits",String(restored));}catch{}
+  }
 
   useEffect(()=>{
     try{
@@ -221,8 +240,20 @@ function MainApp() {
       const d=localStorage.getItem("ctx_d");
       if(h) setHistory(JSON.parse(h));
       if(u&&d===new Date().toDateString()) setFreeUsed(parseInt(u));
-      if(localStorage.getItem("ctx_pro")==="1") setIsPro(true);
+      refreshCreditState();
     }catch{}
+  },[]);
+
+  useEffect(()=>{
+    const onStorage = (event)=>{
+      if(["ctx_pro","ctx_credits"].includes(event.key)) refreshCreditState();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refreshCreditState);
+    return ()=>{
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refreshCreditState);
+    };
   },[]);
 
   useEffect(()=>{ if(step===1) setTimeout(()=>textareaRef.current?.focus(),100); },[step]);
@@ -252,7 +283,10 @@ function MainApp() {
 
   async function transform(tone) {
     if(tone.pro&&!isPro){ setShowPaywall(true); return; }
+    if(tone.pro&&isPro&&hasCreditLedger&&credits<=0){ setShowPaywall(true); return; }
     if(!tone.pro&&!isPro&&freeUsed>=FREE_LIMIT){ setShowPaywall(true); return; }
+    const creditReservation=reserveCreditForGeneration(tone);
+    if(creditReservation.blocked) return;
     setActiveTone(tone); setLoading(true); setResult(""); setStep(3);
     const sc=scenario?SCENARIOS.find(s=>s.id===scenario):null;
     try{
@@ -265,8 +299,12 @@ function MainApp() {
         }),
       });
       const data=await res.json();
-      const text=data.content?.map(c=>c.text||"").join("")||"Errore nella risposta.";
+      const generatedText=data.content?.map(c=>c.text||"").join("").trim();
+      const text=generatedText||"Errore nella risposta.";
       setResult(text);
+      if(tone.pro&&isPro&&hasCreditLedger&&!generatedText){
+        refundReservedCredit(creditReservation);
+      }
       if(isPro){
         const entry={id:Date.now(),date:new Date().toLocaleString("it-IT"),original:input,tone:tone.label,result:text};
         const nh=[entry,...history].slice(0,50);
@@ -277,7 +315,7 @@ function MainApp() {
         const n=freeUsed+1; setFreeUsed(n);
         try{localStorage.setItem("ctx_u",n);localStorage.setItem("ctx_d",new Date().toDateString());}catch{}
       }
-    }catch{ setResult("Errore di connessione. Riprova."); }
+    }catch{ refundReservedCredit(creditReservation); setResult("Errore di connessione. Riprova."); }
     setLoading(false);
   }
 
@@ -295,82 +333,156 @@ function MainApp() {
 
   function copyResult(){ navigator.clipboard.writeText(result); setCopied(true); setTimeout(()=>setCopied(false),2000); }
 
+  async function copyShareLink(){
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(APP_SHARE_URL);
+      return;
+    }
+    const helper=document.createElement("textarea");
+    helper.value=APP_SHARE_URL;
+    helper.setAttribute("readonly","");
+    helper.style.position="fixed";
+    helper.style.left="-9999px";
+    document.body.appendChild(helper);
+    helper.select();
+    document.execCommand("copy");
+    document.body.removeChild(helper);
+  }
+
+  async function shareApp(){
+    const shareData={title:"ConText",text:APP_SHARE_TEXT,url:APP_SHARE_URL};
+    try{
+      if(navigator.share){
+        await navigator.share(shareData);
+        setShareStatus("Condiviso");
+      }else{
+        await copyShareLink();
+        setShareStatus("Link copiato");
+      }
+    }catch(error){
+      if(error?.name==="AbortError") return;
+      try{
+        await copyShareLink();
+        setShareStatus("Link copiato");
+      }catch{
+        setShareStatus("Apri link");
+        window.open(APP_SHARE_URL,"_blank","noopener,noreferrer");
+      }
+    }
+    setTimeout(()=>setShareStatus(""),2200);
+  }
+
   // ── CSS ────────────────────────────────────────────────────────────────
   const css = `
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    :root{--bg:#07070e;--bg2:#0f0f1c;--bg3:#161626;--gold:#c8a84b;--teal:#3ecfbe;--red:#e05c6b;--text:#f0ece4;--sub:#9995a8;--border:#1e1e32;}
+    :root{--bg:#07070e;--bg2:#0f0f1c;--bg3:#161626;--gold:#c8a84b;--teal:#3ecfbe;--red:#e05c6b;--text:#f0ece4;--sub:#aaa6ba;--muted:#706d82;--border:#24243a;--glass:rgba(15,15,28,.78);}
     html,body,#root{width:100%;max-width:100%;overflow-x:hidden;}
-    body{background:var(--bg);}
-    @keyframes fadeUp {from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-    @keyframes logoBreath{from{filter:drop-shadow(0 0 10px rgba(60,230,180,.4)) drop-shadow(0 0 28px rgba(90,200,255,.2))}to{filter:drop-shadow(0 0 24px rgba(60,230,180,.75)) drop-shadow(0 0 55px rgba(90,200,255,.4))}}
+    body{background:radial-gradient(circle at 0% 0%,#12342d 0,#07070e 30%,#07070e 100%);}
+    button,a{-webkit-tap-highlight-color:transparent;}
+    @keyframes fadeUp {from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes logoBreath{from{filter:drop-shadow(0 0 10px rgba(255,204,0,.32)) drop-shadow(0 0 24px rgba(255,204,0,.14))}to{filter:drop-shadow(0 0 24px rgba(255,204,0,.62)) drop-shadow(0 0 55px rgba(255,204,0,.28))}}
     @keyframes bioDotp{0%,100%{opacity:.25;transform:scale(1) translateY(0)}50%{opacity:1;transform:scale(1.7) translateY(-4px)}}
     @keyframes spin{to{transform:rotate(360deg)}}
-    @keyframes stepPulse{0%,100%{box-shadow:0 0 0 0 rgba(200,168,75,.3)}50%{box-shadow:0 0 0 8px rgba(200,168,75,0)}}
-    .fade{animation:fadeUp .35s ease both;}
+    @keyframes stepPulse{0%,100%{box-shadow:0 0 0 0 rgba(200,168,75,.32)}50%{box-shadow:0 0 0 10px rgba(200,168,75,0)}}
+    .fade{animation:fadeUp .38s ease both;}
     .spin{display:inline-block;animation:spin 1s linear infinite;}
     textarea{font-family:'Cormorant Garamond',serif!important;}
-    textarea::placeholder{color:#2a2a40;font-style:italic;}
+    textarea::placeholder{color:#4e4b62;font-style:italic;}
     textarea:focus{outline:none;}
-    ::-webkit-scrollbar{width:3px;}
-    ::-webkit-scrollbar-thumb{background:#1e1e32;}
-    .sc-btn{transition:all .18s;border:1px solid var(--border);}
-    .sc-btn:hover{transform:translateY(-2px);}
-    .tone-btn{transition:all .18s;}
-    .tone-btn:hover:not(:disabled){transform:translateY(-2px);filter:brightness(1.08);}
-    .send-btn{transition:all .18s;}
-    .send-btn:hover:not(:disabled){transform:translateY(-1px);opacity:.9;}
-    .send-btn:disabled{opacity:.3;cursor:not-allowed;}
-    .ex-btn{transition:all .15s;}
-    .ex-btn:hover{color:var(--sub)!important;border-color:#2e2e44!important;}
-    .icon-btn{transition:all .15s;}
-    .icon-btn:hover{color:var(--gold)!important;border-color:#c8a84b55!important;}
-    .top-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
-    .top-link{background:transparent;border:1px solid var(--border);color:var(--sub);padding:6px 10px;border-radius:3px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-decoration:none;line-height:1;transition:all .15s;}
-    .top-link:hover{color:var(--gold);border-color:#c8a84b55;}
-    @media (max-width:560px){
-      header{padding:12px 14px!important;align-items:flex-start!important;gap:10px!important;flex-wrap:wrap;}
-      .top-actions{width:100%;max-width:none;gap:5px;justify-content:flex-start;}
-      .top-link{font-size:8px;padding:6px 8px;}
+    ::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:#24243a;}
+    .app-shell{min-height:100vh;background:radial-gradient(circle at top left,#12332c 0,#07070e 33%,#07070e 100%);color:var(--text);}
+    .app-header{position:sticky;top:0;z-index:20;background:rgba(7,7,14,.88);border-bottom:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+    .header-inner{max-width:1060px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
+    .brand{cursor:pointer;display:flex;align-items:center;gap:11px;min-width:190px;}
+    .brand-kicker{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:.28em;text-transform:uppercase;}
+    .brand-name{font-family:'Cormorant Garamond',serif;font-size:25px;font-weight:300;color:var(--text);line-height:1;}
+    .brand-name em{color:var(--gold);font-weight:400;}
+    .top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
+    .top-link,.credit-pill,.history-pill{background:rgba(15,15,28,.72);border:1px solid var(--border);color:var(--sub);padding:8px 11px;border-radius:999px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.11em;text-decoration:none;line-height:1;transition:all .16s;white-space:nowrap;}
+    .top-link:hover,.history-pill:hover{color:var(--gold);border-color:#c8a84b55;transform:translateY(-1px);}
+    .credit-pill{border-color:var(--gold);color:var(--gold);font-weight:700;background:#c8a84b10;}
+    .free-pill{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--teal);padding:8px 10px;white-space:nowrap;}
+    .pro-banner{text-align:center;padding:10px 16px;border-bottom:1px solid #c8a84b20;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;}
+    .step-wrap{max-width:760px;margin:0 auto;padding:24px 20px 0;}
+    .step-card{background:rgba(15,15,28,.58);border:1px solid var(--border);border-radius:16px;padding:14px;box-shadow:0 18px 70px rgba(0,0,0,.18);}
+    .step-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+    .step-item{position:relative;border:1px solid var(--border);border-radius:12px;padding:11px 8px 10px;text-align:center;background:#090916;transition:all .22s;min-width:0;}
+    .step-item.active{border-color:#c8a84b99;background:linear-gradient(145deg,#c8a84b,#eadb91);color:#07070e;animation:stepPulse 2.2s infinite;}
+    .step-item.done{border-color:#c8a84b44;background:#c8a84b12;}
+    .step-number{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;margin-bottom:4px;color:inherit;}
+    .step-label{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.12em;color:var(--sub);text-transform:uppercase;}
+    .step-item.active .step-label{color:#07070e;}.step-item.done .step-label,.step-item.done .step-number{color:var(--gold);}
+    .screen{max-width:960px;margin:0 auto;padding:34px 20px 62px;}
+    .narrow{max-width:760px;}
+    .hero-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:26px;align-items:center;}
+    .eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--teal);letter-spacing:.34em;text-transform:uppercase;margin-bottom:14px;}
+    .hero-title{font-family:'Cormorant Garamond',serif;font-size:clamp(45px,8vw,76px);font-weight:300;line-height:.96;letter-spacing:-.035em;color:var(--text);margin-bottom:18px;max-width:100%;overflow-wrap:normal;}
+    .hero-title span{color:var(--gold);font-style:italic;}
+    .lead{font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.95;color:#d6d1df;max-width:650px;margin-bottom:22px;}
+    .cta-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin:20px 0 18px;}
+    .primary-cta,.secondary-cta,.wide-cta{border-radius:10px;padding:16px 18px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;font-weight:700;cursor:pointer;transition:all .18s;text-transform:uppercase;}
+    .primary-cta,.wide-cta{background:var(--gold);border:1px solid var(--gold);color:#07070e;box-shadow:0 18px 55px rgba(200,168,75,.12);}
+    .secondary-cta{background:#3ecfbe0d;border:1px solid #3ecfbe33;color:var(--teal);}
+    .primary-cta:hover,.wide-cta:hover,.secondary-cta:hover{transform:translateY(-2px);filter:brightness(1.05);}
+    .trust-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;}
+    .trust-card,.info-card,.scenario-card,.tone-card,.result-card,.input-card,.message-summary,.example-card{background:rgba(15,15,28,.82);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 70px rgba(0,0,0,.18);}
+    .trust-card{padding:15px;}.trust-card strong{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.13em;color:var(--gold);text-transform:uppercase;margin-bottom:6px;}.trust-card span{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sub);line-height:1.65;}
+    .example-card{padding:24px;border-color:#3ecfbe2c;background:linear-gradient(145deg,rgba(18,18,34,.96),rgba(8,8,16,.96));}
+    .example-label,.section-kicker{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.26em;color:var(--teal);text-transform:uppercase;margin-bottom:12px;}
+    .before-text,.after-text{font-family:'Cormorant Garamond',serif;line-height:1.62;border-radius:10px;padding:17px 18px;}
+    .before-text{font-size:20px;color:#908ca2;font-style:italic;background:#080810;border:1px solid var(--border);margin-bottom:12px;}
+    .after-text{font-size:23px;color:var(--text);background:#3ecfbe0d;border:1px solid #3ecfbe34;border-left:3px solid var(--gold);}
+    .section-title{margin:44px 0 18px;}.section-title h2{font-family:'Cormorant Garamond',serif;font-size:clamp(32px,5vw,48px);font-weight:300;line-height:1.05;color:var(--text);}.section-title p{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sub);line-height:1.85;margin-top:8px;max-width:660px;}
+    .scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}.scenario-card{cursor:pointer;text-align:left;padding:21px 18px;min-height:134px;transition:all .18s;}.scenario-card:hover{transform:translateY(-3px);border-color:#c8a84b55;}.scenario-icon{font-size:27px;display:block;margin-bottom:15px;}.scenario-label{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text);font-weight:600;line-height:1.12;}
+    .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0 4px;}.info-card{padding:18px;}.info-card-title{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:.17em;text-transform:uppercase;margin-bottom:8px;}.info-card-body{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sub);line-height:1.75;}
+    .selected-scenario{display:flex;align-items:center;gap:13px;margin-bottom:24px;padding:16px 18px;border-radius:14px;}.section-heading{font-family:'Cormorant Garamond',serif;font-size:clamp(34px,6vw,52px);font-weight:300;color:var(--text);line-height:1.04;margin-bottom:10px;}.helper{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sub);line-height:1.85;margin-bottom:20px;}
+    .input-card{overflow:hidden;border-radius:16px;margin-bottom:16px;} .message-textarea{width:100%;min-height:210px;background:transparent;border:none;color:var(--text);font-size:26px;padding:24px;resize:vertical;line-height:1.55;}
+    .input-footer{padding:14px 18px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}.counter{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);}.example-buttons{display:flex;gap:8px;}.ex-btn{background:#090916;border:1px solid var(--border);border-radius:999px;color:#9c98ad;font-size:10px;padding:8px 12px;cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .15s;}.ex-btn:hover{color:var(--gold);border-color:#c8a84b55;}
+    .wide-cta{width:100%;}.wide-cta:disabled{opacity:.38;cursor:not-allowed;box-shadow:none;filter:none;transform:none;background:#161626;color:var(--sub);border-color:var(--border);}
+    .message-summary{padding:18px 20px;border-left:4px solid var(--gold);margin-bottom:28px;}.summary-text{font-family:'Cormorant Garamond',serif;font-size:22px;color:#cac5d7;font-style:italic;line-height:1.55;}.text-link{background:transparent;border:none;color:#8f8fa8;font-size:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;margin-top:11px;letter-spacing:.12em;padding:0;}.text-link:hover{color:var(--gold);}
+    .tone-section-title{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--sub);letter-spacing:.24em;margin:22px 0 12px;text-transform:uppercase;}.tone-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}.tone-card{border-radius:14px;padding:20px 14px;cursor:pointer;text-align:center;transition:all .18s;position:relative;min-height:122px;}.tone-card:hover:not(:disabled){transform:translateY(-3px);filter:brightness(1.08);}.tone-icon{font-size:29px;margin-bottom:10px;font-family:'JetBrains Mono',monospace;}.tone-label{font-family:'Cormorant Garamond',serif;font-size:20px;color:var(--text);font-weight:600;}.tone-badge{position:absolute;top:8px;right:8px;font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--gold);border:1px solid #c8a84b30;padding:3px 6px;border-radius:999px;background:#07070e;}
+    .result-card{padding:28px 24px;margin-bottom:16px;border-radius:16px;}.result-text{font-family:'Cormorant Garamond',serif;font-size:clamp(27px,6vw,40px);line-height:1.45;color:var(--text);}.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}.ghost-btn{background:rgba(15,15,28,.76);border:1px solid var(--border);border-radius:10px;padding:15px 13px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sub);letter-spacing:.15em;transition:all .18s;text-transform:uppercase;}.ghost-btn:hover{color:var(--gold);border-color:#c8a84b55;}.original-card{margin-top:18px;padding:16px 18px;background:rgba(15,15,28,.68);border:1px solid var(--border);border-radius:12px;}.original-card p{font-family:'Cormorant Garamond',serif;font-size:18px;color:#b7b7c8;font-style:italic;line-height:1.5;}
+    .modal-card{background:#0c0c18;border:1px solid #3ce6b433;border-radius:16px;padding:28px;max-width:520px;width:100%;box-shadow:0 20px 80px rgba(0,0,0,.45);}.paywall-card{border-color:#c8a84b40;max-width:430px;}
+    footer{border-top:1px solid var(--border);padding:24px 20px 30px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:#5d5a70;line-height:1.8;background:#07070e;} footer a{color:var(--sub);margin:0 6px;}
+    @media(max-width:800px){
+      .header-inner{padding:14px 16px;align-items:flex-start;flex-direction:column;gap:13px;}.brand{width:100%;}.top-actions{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;justify-content:stretch;}.top-link,.credit-pill,.history-pill{font-size:8px;padding:9px 6px;text-align:center;width:100%;min-width:0;letter-spacing:.06em;}.free-pill{grid-column:1 / span 2;width:100%;padding:9px 6px;font-size:10px;text-align:left;}.credit-pill{grid-column:3 / span 1;}.step-wrap{padding:18px 14px 0;}.step-card{padding:8px;border-radius:14px;}.step-grid{gap:5px;}.step-item{padding:9px 2px 8px;border-radius:10px;}.step-number{font-size:11px;}.step-label{font-size:6.5px;letter-spacing:.02em;white-space:normal;overflow:hidden;text-overflow:clip;}.screen{padding:30px 16px 56px;}.hero-layout{grid-template-columns:minmax(0,1fr);gap:22px;}.hero-title{font-size:clamp(39px,11.4vw,48px);line-height:1.02;letter-spacing:-.025em;}.lead{font-size:12px;line-height:1.9;max-width:100%;}.cta-row{grid-template-columns:1fr;}.primary-cta,.secondary-cta,.wide-cta{width:100%;}.trust-grid,.info-grid,.scenario-grid,.tone-grid{grid-template-columns:1fr;}.example-card{padding:20px;}.before-text{font-size:20px;}.after-text{font-size:25px;}.section-title{margin-top:42px;}.scenario-card{min-height:auto;padding:22px 20px;display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:center;}.scenario-icon{margin:0;}.scenario-label{font-size:23px;}.message-textarea{min-height:245px;font-size:27px;padding:22px;}.input-footer{align-items:flex-start;}.example-buttons{width:100%;}.ex-btn{flex:1;padding:10px 8px;}.tone-card{min-height:auto;padding:22px 18px;display:flex;align-items:center;gap:15px;text-align:left;}.tone-icon{margin:0;min-width:34px;}.tone-label{font-size:24px;}.action-grid{grid-template-columns:1fr;}.modal-card{padding:24px 20px;border-radius:14px;}.trust-card,.info-card{padding:18px;}}
+    @media(max-width:800px){
+      .app-header{overflow:hidden;}.header-inner,.top-actions,.step-wrap,.screen,.hero-layout{width:100%;max-width:100%;min-width:0;}.top-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}.top-actions>*{min-width:0;max-width:100%;white-space:normal;}.free-pill{grid-column:1 / span 1;text-align:center;}.credit-pill{grid-column:2 / span 1;}.step-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.step-label{font-size:7px;letter-spacing:.06em;}.hero-title{font-size:clamp(35px,10.8vw,43px);line-height:1.06;}.hero-title span{display:inline;}.lead{overflow-wrap:break-word;}.example-card,.trust-card,.info-card,.scenario-card,.message-summary,.input-card,.tone-card,.result-card{max-width:100%;}
     }
   `;
 
-  const Logo = ({size=24}) => (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <path d="M36 8 C20 8 8 16 8 24 C8 32 20 40 36 40 L36 34 C23 34 14 29.5 14 24 C14 18.5 23 14 36 14 Z" fill="none" stroke="#c8a84b" strokeWidth="1.8"/>
-      <circle cx="30" cy="24" r="2.8" fill="#c8a84b"/>
-      <line x1="36" y1="8"  x2="40" y2="8"  stroke="#c8a84b" strokeWidth="1.8" strokeLinecap="round"/>
-      <line x1="36" y1="40" x2="40" y2="40" stroke="#c8a84b" strokeWidth="1.8" strokeLinecap="round"/>
-    </svg>
+  const Logo = ({size=28}) => (
+    <img src="/icons/context-app-icon-20260611-clean.png" alt="ConText" width={size} height={size} style={{display:"block",objectFit:"contain",filter:"drop-shadow(0 0 10px rgba(255,204,0,.22))"}} />
   );
 
   // ── HEADER ─────────────────────────────────────────────────────────────
   const header = (
-    <header style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"linear-gradient(180deg,#09091a,var(--bg))",position:"sticky",top:0,zIndex:20,backdropFilter:"blur(8px)"}}>
-      <div onClick={restart} style={{cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
-        <Logo size={24}/>
-        <div>
-          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".28em"}}>◆ TONE INTELLIGENCE</div>
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:300,color:"var(--text)",lineHeight:1.1}}>Con<em style={{color:"var(--gold)",fontWeight:400}}>Text</em></div>
-        </div>
-      </div>
-      <div className="top-actions">
-        <a className="top-link" href="/blog/index.html" target="_blank" rel="noopener noreferrer" title="Leggi il blog ConText">Blog</a>
-        <a className="top-link" href="/guida.html" target="_blank" rel="noopener noreferrer" title="Apri la guida completa di ConText">Guida</a>
-        <a className="top-link" href="/attiva.html" target="_blank" rel="noopener noreferrer" title="Attiva un codice ConText">Attiva</a>
-        <button className="top-link" onClick={()=>setShowInstall(true)} title="Installa ConText come app">Installa</button>
-        {isPro&&(
-          <button className="icon-btn" onClick={()=>setShowHistory(h=>!h)} style={{background:showHistory?"#c8a84b18":"transparent",border:"1px solid "+(showHistory?"#c8a84b40":"var(--border)"),color:showHistory?"var(--gold)":"var(--sub)",padding:"6px 12px",borderRadius:3,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",letterSpacing:".1em"}}>
-            ↺ Storia
-          </button>
-        )}
-        {!isPro&&(
-          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:remaining>1?"var(--teal)":"var(--red)",padding:"6px 10px"}}>
-            {remaining} gratis oggi
+    <header className="app-header">
+      <div className="header-inner">
+        <div onClick={restart} className="brand" aria-label="Torna all'inizio di ConText">
+          <Logo size={30}/>
+          <div>
+            <div className="brand-kicker">◆ Tone Intelligence</div>
+            <div className="brand-name">Con<em>Text</em></div>
           </div>
-        )}
-        <button onClick={()=>setShowPaywall(true)} style={{background:isPro?"var(--gold)":"transparent",border:"1px solid var(--gold)",color:isPro?"#07070e":"var(--gold)",padding:"6px 14px",borderRadius:3,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",letterSpacing:".12em",fontWeight:isPro?500:300,transition:"all .2s"}}>
-          {isPro?"✓ CREDITI":"CREDITI"}
-        </button>
+        </div>
+        <div className="top-actions">
+          <a className="top-link" href="/blog/index.html" target="_blank" rel="noopener noreferrer" title="Leggi il blog ConText">Blog</a>
+          <a className="top-link" href="/guida.html" target="_blank" rel="noopener noreferrer" title="Apri la guida completa di ConText">Guida</a>
+          <a className="top-link" href="/attiva.html" target="_blank" rel="noopener noreferrer" title="Attiva un codice ConText">Attiva</a>
+          <button className="top-link" onClick={shareApp} title="Condividi ConText con altre persone" style={{color:shareStatus?"var(--teal)":"var(--sub)",borderColor:shareStatus?"#3ecfbe55":"var(--border)",background:shareStatus?"#3ecfbe10":"rgba(15,15,28,.72)"}}>{shareStatus||"Condividi"}</button>
+          <button className="top-link" onClick={()=>setShowInstall(true)} title="Installa ConText come app">Installa</button>
+          {isPro&&(
+            <button className="history-pill" onClick={()=>setShowHistory(h=>!h)} style={{background:showHistory?"#c8a84b18":"rgba(15,15,28,.72)",borderColor:showHistory?"#c8a84b55":"var(--border)",color:showHistory?"var(--gold)":"var(--sub)"}}>↺ Storia</button>
+          )}
+          {isPro&&hasCreditLedger&&(
+            <div className="free-pill" style={{color:credits>0?"var(--teal)":"var(--red)"}} title="Crediti residui per i toni avanzati">{credits} crediti</div>
+          )}
+          {!isPro&&<div className="free-pill">{remaining} gratis oggi</div>}
+          <button onClick={()=>setShowPaywall(true)} className="credit-pill" style={{background:isPro?"var(--gold)":"#c8a84b10",color:isPro?"#07070e":"var(--gold)"}}>
+            {isPro ? (hasCreditLedger ? "RICARICA" : "✓ CREDITI") : "CREDITI"}
+          </button>
+        </div>
       </div>
     </header>
   );
@@ -378,144 +490,142 @@ function MainApp() {
   // ── STEP BAR ───────────────────────────────────────────────────────────
   const STEP_LABELS = ["Situazione","Messaggio","Tono","Risultato"];
   const stepBar = (
-    <div style={{display:"flex",alignItems:"center",padding:"16px 20px 0",maxWidth:680,margin:"0 auto",width:"100%"}}>
-      {STEP_LABELS.map((s,i)=>(
-        <div key={i} style={{display:"flex",alignItems:"center",flex:i<STEP_LABELS.length-1?1:"auto"}}>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
-            <div style={{width:28,height:28,borderRadius:"50%",background:step===i?"var(--gold)":step>i?"#c8a84b30":"transparent",border:`1px solid ${step>=i?"var(--gold)":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:step===i?"#07070e":step>i?"var(--gold)":"var(--sub)",fontWeight:step===i?700:400,transition:"all .3s",...(step===i?{animation:"stepPulse 2s infinite"}:{})}}>
-              {step>i?"✓":i+1}
+    <div className="step-wrap">
+      <div className="step-card" aria-label="Avanzamento trasformazione messaggio">
+        <div className="step-grid">
+          {STEP_LABELS.map((s,i)=>(
+            <div key={i} className={`step-item ${step===i?"active":step>i?"done":""}`}>
+              <div className="step-number">{step>i?"✓":i+1}</div>
+              <div className="step-label">{s}</div>
             </div>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:step>=i?"var(--gold)":"var(--sub)",letterSpacing:".1em",whiteSpace:"nowrap",transition:"color .3s"}}>{s}</div>
-          </div>
-          {i<STEP_LABELS.length-1&&<div style={{flex:1,height:1,background:step>i?"var(--gold)":"var(--border)",margin:"0 6px 18px",transition:"background .3s"}}/>}
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   );
 
   // ── STEP 0: SCENARIO ───────────────────────────────────────────────────
   const step0 = (
-    <div className="fade" style={{maxWidth:680,margin:"0 auto",padding:"28px 16px"}}>
-      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(25px,5vw,38px)",fontWeight:300,color:"var(--text)",marginBottom:6,lineHeight:1.1}}>Scrivi quello che pensi. <span style={{color:"var(--gold)"}}>ConText lo dice nel modo giusto.</span></h2>
-      <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",marginBottom:12,lineHeight:1.7}}>Trasforma qualsiasi messaggio nel tono perfetto per la situazione. In italiano. In pochi secondi. Prova senza registrarti: 3 trasformazioni gratis ogni giorno.</p>
-      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
-        {["3 gratis ogni giorno","Nessun account per provare","Crediti senza abbonamento","Codice attivazione pronto"].map(t=><span key={t} style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--teal)",border:"1px solid #3ecfbe24",borderRadius:999,padding:"6px 9px",background:"#3ecfbe0a",letterSpacing:".08em"}}>{t}</span>)}
-      </div>
-      <div style={{background:"var(--bg2)",border:"1px solid #3ecfbe22",borderRadius:4,padding:"14px 16px",marginBottom:22}}>
-        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--teal)",letterSpacing:".2em",marginBottom:8}}>ESEMPIO PRIMA / DOPO</div>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"#8f8fa8",fontStyle:"italic",lineHeight:1.5,marginBottom:8}}>“Non avete ancora pagato. È passato troppo tempo e questa cosa non va bene.”</p>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:"var(--text)",lineHeight:1.55,borderLeft:"2px solid var(--gold)",paddingLeft:12}}>“Vi scrivo per sollecitare gentilmente il saldo della fattura in sospeso. Resto disponibile per eventuali chiarimenti, ma vi chiedo di procedere appena possibile.”</p>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10,marginBottom:22}}>
-        {[
-          ["Privacy", "Provi senza account e la cronologia resta sul dispositivo."],
-          ["Lavoro", "Pensato per clienti, recensioni, colleghi e richieste delicate."],
-          ["Premium", "I toni avanzati saranno collegati a codici/crediti acquistati."]
-        ].map(([title,body])=>(
-          <div key={title} style={{background:"#0f0f1caa",border:"1px solid var(--border)",borderRadius:4,padding:"12px 13px"}}>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".16em",marginBottom:6}}>{title.toUpperCase()}</div>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--sub)",lineHeight:1.65}}>{body}</div>
+    <div className="fade screen">
+      <section className="hero-layout" aria-label="Presentazione ConText">
+        <div>
+          <div className="eyebrow">Scrittura difficile, tono giusto</div>
+          <h1 className="hero-title">Scrivi naturale. <span>Invia meglio.</span></h1>
+          <p className="lead">ConText prende un messaggio scritto di getto e lo trasforma in una versione più professionale, diplomatica o amichevole. In italiano, in pochi secondi, senza registrarti.</p>
+          <div className="cta-row">
+            <button className="primary-cta" onClick={skipScenario}>Inizia subito →</button>
+            <button className="secondary-cta" onClick={()=>setShowPaywall(true)}>Vedi crediti</button>
           </div>
+          <div className="trust-grid">
+            <div className="trust-card"><strong>3 gratis al giorno</strong><span>Provi i toni base senza account e senza carta.</span></div>
+            <div className="trust-card"><strong>Privacy prudente</strong><span>La cronologia resta sul dispositivo quando disponibile.</span></div>
+            <div className="trust-card"><strong>Per lavoro</strong><span>Clienti, recensioni, colleghi, richieste e risposte delicate.</span></div>
+          </div>
+        </div>
+        <div className="example-card" aria-label="Esempio prima e dopo">
+          <div className="example-label">Esempio prima / dopo</div>
+          <div className="before-text">“Non avete ancora pagato. È passato troppo tempo e questa cosa non va bene.”</div>
+          <div className="section-kicker" style={{color:"var(--gold)",margin:"10px 0"}}>↓ tono professionale</div>
+          <div className="after-text">“Vi scrivo per sollecitare gentilmente il saldo della fattura in sospeso. Resto disponibile per eventuali chiarimenti, ma vi chiedo di procedere appena possibile.”</div>
+        </div>
+      </section>
+
+      <section aria-label="Scegli situazione">
+        <div className="section-title">
+          <div className="section-kicker">Passo 1</div>
+          <h2>Qual è la situazione?</h2>
+          <p>Scegli una scorciatoia se vuoi un risultato più calibrato, oppure salta e scrivi direttamente quello che hai in testa.</p>
+        </div>
+        <div className="scenario-grid">
+          {SCENARIOS.map(s=>(
+            <button key={s.id} className="scenario-card" onClick={()=>pickScenario(s.id)}>
+              <span className="scenario-icon" style={{color:s.color}}>{s.icon}</span>
+              <span className="scenario-label">{s.label}</span>
+            </button>
+          ))}
+        </div>
+        <button onClick={skipScenario} className="wide-cta" style={{marginTop:14,background:"transparent",color:"var(--teal)",borderColor:"#3ecfbe38",boxShadow:"none"}}>Scrivi direttamente senza scegliere →</button>
+      </section>
+
+      <section className="info-grid" aria-label="Garanzie ConText">
+        {[
+          ["Nessun account", "Puoi capire subito se l'app ti serve, senza registrazione iniziale."],
+          ["Crediti chiari", "I toni avanzati usano crediti, senza abbonamento e senza scadenza."],
+          ["Installabile", "Puoi aggiungerla alla schermata Home e usarla come piccola app."],
+        ].map(([title,body])=>(
+          <div key={title} className="info-card"><div className="info-card-title">{title}</div><div className="info-card-body">{body}</div></div>
         ))}
-      </div>
-      <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",marginBottom:24,lineHeight:1.7}}>Scegli la situazione oppure scrivi direttamente.</p>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(155px,1fr))",gap:10,marginBottom:20}}>
-        {SCENARIOS.map(s=>(
-          <button key={s.id} className="sc-btn" onClick={()=>pickScenario(s.id)} style={{background:"var(--bg2)",borderRadius:4,padding:"16px 14px",cursor:"pointer",textAlign:"left"}}>
-            <span style={{fontSize:22,color:s.color,display:"block",marginBottom:8}}>{s.icon}</span>
-            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"var(--text)",fontWeight:600,display:"block"}}>{s.label}</span>
-          </button>
-        ))}
-      </div>
-      <button onClick={skipScenario} style={{background:"transparent",border:"1px solid var(--border)",borderRadius:3,color:"var(--sub)",padding:"12px 24px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",letterSpacing:".15em",width:"100%",transition:"all .15s"}}
-        onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--gold)";e.currentTarget.style.color="var(--gold)";}}
-        onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.color="var(--sub)";}}>
-        → Scrivi direttamente senza scegliere una situazione
-      </button>
+      </section>
     </div>
   );
 
   // ── STEP 1: SCRIVI ─────────────────────────────────────────────────────
   const sc = scenario ? SCENARIOS.find(s=>s.id===scenario) : null;
   const step1 = (
-    <div className="fade" style={{maxWidth:680,margin:"0 auto",padding:"28px 16px"}}>
+    <div className="fade screen narrow">
       {sc&&(
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20,padding:"12px 16px",background:sc.color+"12",border:`1px solid ${sc.color}30`,borderRadius:4}}>
-          <span style={{fontSize:20,color:sc.color}}>{sc.icon}</span>
+        <div className="selected-scenario" style={{background:sc.color+"12",border:`1px solid ${sc.color}36`}}>
+          <span style={{fontSize:27,color:sc.color}}>{sc.icon}</span>
           <div>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:sc.color,letterSpacing:".2em",marginBottom:2}}>SITUAZIONE</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"var(--text)",fontWeight:600}}>{sc.label}</div>
+            <div className="section-kicker" style={{color:sc.color,marginBottom:4}}>Situazione scelta</div>
+            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,color:"var(--text)",fontWeight:600,lineHeight:1.05}}>{sc.label}</div>
           </div>
-          <button onClick={()=>setStep(0)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"var(--sub)",cursor:"pointer",fontSize:16,padding:4}}>✕</button>
+          <button onClick={()=>setStep(0)} style={{marginLeft:"auto",background:"transparent",border:"none",color:"var(--sub)",cursor:"pointer",fontSize:20,padding:8}}>✕</button>
         </div>
       )}
-      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(20px,4vw,28px)",fontWeight:300,color:"var(--text)",marginBottom:6}}>Scrivi cosa vuoi dire</h2>
-      <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",marginBottom:16,lineHeight:1.7}}>Senza filtri, come lo pensi davvero.</p>
+      <div className="section-kicker">Passo 2</div>
+      <h2 className="section-heading">Scrivi come ti viene.</h2>
+      <p className="helper">Non serve essere diplomatico adesso. Inserisci il messaggio grezzo: ConText penserà a renderlo più adatto al contesto.</p>
 
-      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:4,marginBottom:16,transition:"border-color .2s"}}
-        onFocusCapture={e=>e.currentTarget.style.borderColor="#c8a84b40"}
-        onBlurCapture={e=>e.currentTarget.style.borderColor="var(--border)"}>
+      <div className="input-card" onFocusCapture={e=>e.currentTarget.style.borderColor="#c8a84b55"} onBlurCapture={e=>e.currentTarget.style.borderColor="var(--border)"}>
         <textarea ref={textareaRef} value={input} onChange={e=>{setText(e.target.value);setResult("");}}
           onKeyDown={e=>{if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)&&input.trim())goToTones();}}
-          placeholder={sc?sc.hint:"Scrivi quello che vuoi dire davvero..."}
-          style={{width:"100%",minHeight:130,background:"transparent",border:"none",color:"var(--text)",fontSize:18,padding:"16px",resize:"vertical",lineHeight:1.7}}
+          placeholder={sc?sc.hint:"Scrivi quello che vorresti dire davvero..."}
+          className="message-textarea"
         />
-        <div style={{padding:"8px 16px 12px",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"#2a2a3e"}}>
-            {input.length>0?`${input.length} caratteri`:"Oppure usa un esempio →"}
-          </div>
-          <div style={{display:"flex",gap:6}}>
-            {EXAMPLES.map((ex,i)=>(
-              <button key={i} className="ex-btn" onClick={()=>setText(ex)} style={{background:"transparent",border:"1px solid #1e1e32",borderRadius:2,color:"#8f8fa8",fontSize:"9px",padding:"4px 9px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace"}}>
-                es.{i+1}
-              </button>
-            ))}
+        <div className="input-footer">
+          <div className="counter">{input.length>0?`${input.length} caratteri`:"Puoi anche partire da un esempio"}</div>
+          <div className="example-buttons">
+            {EXAMPLES.map((ex,i)=>(<button key={i} className="ex-btn" onClick={()=>setText(ex)}>esempio {i+1}</button>))}
           </div>
         </div>
       </div>
 
-      <button className="send-btn" onClick={goToTones} disabled={!input.trim()} style={{width:"100%",background:input.trim()?"var(--gold)":"var(--bg3)",color:input.trim()?"#07070e":"var(--sub)",border:"none",borderRadius:4,padding:"16px",fontFamily:"'JetBrains Mono',monospace",fontSize:"12px",letterSpacing:".2em",fontWeight:700,cursor:input.trim()?"pointer":"not-allowed"}}>
-        {input.trim()?"SCEGLI IL TONO →":"SCRIVI IL MESSAGGIO PER CONTINUARE"}
-      </button>
+      <button className="wide-cta" onClick={goToTones} disabled={!input.trim()}>{input.trim()?"Scegli il tono →":"Scrivi il messaggio per continuare"}</button>
     </div>
   );
 
   // ── STEP 2: TONI ───────────────────────────────────────────────────────
   const step2 = (
-    <div className="fade" style={{maxWidth:680,margin:"0 auto",padding:"28px 16px"}}>
-      <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderLeft:"3px solid var(--gold)",borderRadius:4,padding:"14px 16px",marginBottom:24}}>
-        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".2em",marginBottom:6}}>IL TUO MESSAGGIO</div>
-        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:"var(--sub)",fontStyle:"italic",lineHeight:1.6}}>"{input}"</p>
-        <button onClick={()=>setStep(1)} style={{background:"transparent",border:"none",color:"#8f8fa8",fontSize:"10px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",marginTop:8,letterSpacing:".1em",padding:0,transition:"color .15s"}}
-          onMouseEnter={e=>e.target.style.color="var(--sub)"}
-          onMouseLeave={e=>e.target.style.color="#3a3a52"}>
-          ← modifica
-        </button>
+    <div className="fade screen narrow">
+      <div className="message-summary">
+        <div className="section-kicker" style={{color:"var(--gold)"}}>Il tuo messaggio</div>
+        <p className="summary-text">“{input}”</p>
+        <button onClick={()=>setStep(1)} className="text-link">← modifica il testo</button>
       </div>
 
-      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(20px,4vw,28px)",fontWeight:300,color:"var(--text)",marginBottom:6}}>Come vuoi sembrare?</h2>
-      <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",marginBottom:20,lineHeight:1.7}}>Tocca un tono — il messaggio viene trasformato subito.</p>
+      <div className="section-kicker">Passo 3</div>
+      <h2 className="section-heading">Che impressione vuoi dare?</h2>
+      <p className="helper">Tocca un tono: ConText trasforma subito il messaggio. I toni base consumano le prove gratuite giornaliere; quelli avanzati usano crediti.</p>
 
-      <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--sub)",letterSpacing:".25em",marginBottom:10,textTransform:"uppercase"}}>Toni base — gratuiti</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:22}}>
+      <div className="tone-section-title">Toni base — gratuiti</div>
+      <div className="tone-grid">
         {ALL_TONES.filter(t=>!t.pro).map(tone=>(
-          <button key={tone.id} className="tone-btn" onClick={()=>transform(tone)} style={{background:`${tone.color}10`,border:`1px solid ${tone.color}40`,borderRadius:4,padding:"16px 12px",cursor:"pointer",textAlign:"center"}}>
-            <div style={{fontSize:24,color:tone.color,marginBottom:8,fontFamily:"'JetBrains Mono',monospace"}}>{tone.icon}</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:"var(--text)",fontWeight:600}}>{tone.label}</div>
+          <button key={tone.id} className="tone-card" onClick={()=>transform(tone)} style={{background:`${tone.color}10`,border:`1px solid ${tone.color}40`}}>
+            <div className="tone-icon" style={{color:tone.color}}>{tone.icon}</div>
+            <div className="tone-label">{tone.label}</div>
           </button>
         ))}
       </div>
 
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".25em",textTransform:"uppercase"}}>Toni avanzati</div>
-        {!isPro&&<div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"#8f8fa8"}}>— usa crediti per sbloccare</div>}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10}}>
+      <div className="tone-section-title" style={{color:"var(--gold)",marginTop:30}}>Toni avanzati {!isPro&&<span style={{color:"var(--sub)",letterSpacing:0,textTransform:"none"}}>— usa crediti per sbloccare</span>} {isPro&&hasCreditLedger&&<span style={{color:credits>0?"var(--teal)":"var(--red)",letterSpacing:0,textTransform:"none"}}>— {credits} crediti residui</span>}</div>
+      <div className="tone-grid">
         {ALL_TONES.filter(t=>t.pro).map(tone=>(
-          <button key={tone.id} className="tone-btn" onClick={()=>transform(tone)} style={{background:isPro?`${tone.color}10`:"var(--bg2)",border:`1px solid ${isPro?tone.color+"40":"var(--border)"}`,borderRadius:4,padding:"16px 12px",cursor:"pointer",textAlign:"center",opacity:isPro?1:.5,position:"relative"}}>
-            {!isPro&&<div style={{position:"absolute",top:5,right:5,fontFamily:"'JetBrains Mono',monospace",fontSize:"7px",color:"var(--gold)",border:"1px solid #c8a84b30",padding:"2px 5px",borderRadius:2}}>CREDITI</div>}
-            <div style={{fontSize:24,color:isPro?tone.color:"#8f8fa8",marginBottom:8,fontFamily:"'JetBrains Mono',monospace"}}>{tone.icon}</div>
-            <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,color:isPro?"var(--text)":"#3a3a52",fontWeight:600}}>{tone.label}</div>
+          <button key={tone.id} className="tone-card" onClick={()=>transform(tone)} style={{background:isPro?`${tone.color}10`:"rgba(15,15,28,.82)",border:`1px solid ${isPro?tone.color+"40":"var(--border)"}`,opacity:isPro&&(!hasCreditLedger||credits>0)?1:.52}}>
+            {!isPro&&<div className="tone-badge">CREDITI</div>}
+            {isPro&&hasCreditLedger&&credits<=0&&<div className="tone-badge" style={{color:"var(--red)",borderColor:"#e05c6b40"}}>ESAURITI</div>}
+            <div className="tone-icon" style={{color:isPro?tone.color:"#8f8fa8"}}>{tone.icon}</div>
+            <div className="tone-label" style={{color:isPro?"var(--text)":"#5b586d"}}>{tone.label}</div>
           </button>
         ))}
       </div>
@@ -524,47 +634,36 @@ function MainApp() {
 
   // ── STEP 3: RISULTATO ──────────────────────────────────────────────────
   const step3 = (
-    <div className="fade" style={{maxWidth:680,margin:"0 auto",padding:"28px 16px"}}>
-      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(20px,4vw,28px)",fontWeight:300,color:"var(--text)",marginBottom:6}}>
-        {loading?"Riscrittura in corso...":"Ecco il tuo messaggio"}
-      </h2>
-      {activeTone&&<div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:activeTone.color,letterSpacing:".2em",marginBottom:20}}>{activeTone.icon} TONO {activeTone.label.toUpperCase()}</div>}
+    <div className="fade screen narrow">
+      <div className="section-kicker">Passo 4</div>
+      <h2 className="section-heading">{loading?"Sto riscrivendo...":"Messaggio pronto."}</h2>
+      {activeTone&&<p className="helper" style={{color:activeTone.color,letterSpacing:".12em",textTransform:"uppercase",marginBottom:20}}>{activeTone.icon} tono {activeTone.label}</p>}
 
       {loading?(
-        <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:4,padding:40,textAlign:"center"}}>
-          <div className="spin" style={{fontSize:30,color:"var(--gold)",display:"block",marginBottom:14}}>◌</div>
-          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)"}}>Claude sta riscrivendo...</div>
+        <div className="result-card" style={{textAlign:"center",padding:52}}>
+          <div className="spin" style={{fontSize:38,color:"var(--gold)",display:"block",marginBottom:16}}>◌</div>
+          <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"11px",color:"var(--sub)",lineHeight:1.8}}>ConText sta cercando il tono giusto...</div>
         </div>
       ):(
         <>
-          <div style={{background:"var(--bg2)",border:`1px solid ${activeTone?.color+"40"||"var(--border)"}`,borderLeft:`3px solid ${activeTone?.color||"var(--gold)"}`,borderRadius:4,padding:"22px 20px",marginBottom:16}}>
-            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,lineHeight:1.75,color:"var(--text)"}}>{result}</p>
+          <div className="result-card" style={{border:`1px solid ${activeTone?.color+"45"||"var(--border)"}`,borderLeft:`4px solid ${activeTone?.color||"var(--gold)"}`}}>
+            <p className="result-text">{result}</p>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-            <button onClick={copyResult} style={{background:copied?"#3ecfbe18":"transparent",border:`1px solid ${copied?"var(--teal)":"var(--border)"}`,borderRadius:4,padding:"14px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:copied?"var(--teal)":"var(--sub)",letterSpacing:".15em",transition:"all .2s"}}>
-              {copied?"✓ COPIATO":"COPIA TESTO"}
-            </button>
-            <button onClick={()=>setStep(2)} style={{background:"transparent",border:"1px solid var(--border)",borderRadius:4,padding:"14px",cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",letterSpacing:".15em",transition:"all .2s"}}
-              onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--gold)";e.currentTarget.style.color="var(--gold)";}}
-              onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.color="var(--sub)";}}>
-              ← ALTRO TONO
-            </button>
+          <div className="action-grid">
+            <button onClick={copyResult} className="ghost-btn" style={{background:copied?"#3ecfbe18":"rgba(15,15,28,.76)",borderColor:copied?"var(--teal)":"var(--border)",color:copied?"var(--teal)":"var(--sub)"}}>{copied?"✓ Copiato":"Copia testo"}</button>
+            <button onClick={()=>setStep(2)} className="ghost-btn">← Altro tono</button>
           </div>
-          <button onClick={restart} style={{width:"100%",background:"var(--gold)",color:"#07070e",border:"none",borderRadius:4,padding:"14px",fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",letterSpacing:".2em",fontWeight:700,cursor:"pointer",transition:"opacity .2s"}}
-            onMouseEnter={e=>e.target.style.opacity=".85"}
-            onMouseLeave={e=>e.target.style.opacity="1"}>
-            + NUOVO MESSAGGIO
-          </button>
-          <div style={{marginTop:18,padding:"12px 16px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:3}}>
-            <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"#8f8fa8",letterSpacing:".2em",marginBottom:4}}>ORIGINALE</div>
-            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:14,color:"#b7b7c8",fontStyle:"italic"}}>"{input}"</p>
+          <button onClick={restart} className="wide-cta">+ Nuovo messaggio</button>
+          <div className="original-card">
+            <div className="section-kicker" style={{color:"var(--muted)",marginBottom:7}}>Originale</div>
+            <p>“{input}”</p>
           </div>
         </>
       )}
     </div>
   );
 
-  // ── HISTORY PANEL ──────────────────────────────────────────────────────
+  // ── HISTORY PANEL  // ── HISTORY PANEL ──────────────────────────────────────────────────────
   const historyPanel = showHistory&&(
     <div style={{position:"fixed",inset:0,background:"#000000e8",zIndex:50,display:"flex",justifyContent:"flex-end"}} onClick={()=>setShowHistory(false)}>
       <div className="fade" onClick={e=>e.stopPropagation()} style={{width:"min(380px,100vw)",height:"100vh",background:"var(--bg2)",borderLeft:"1px solid var(--border)",overflowY:"auto",padding:24}}>
@@ -629,8 +728,8 @@ function MainApp() {
     <div style={{position:"fixed",inset:0,background:"#000000e8",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={()=>setShowPaywall(false)}>
       <div className="fade" onClick={e=>e.stopPropagation()} style={{background:"#0c0c18",border:"1px solid #c8a84b40",borderRadius:4,padding:32,maxWidth:400,width:"100%"}}>
         <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"8px",color:"var(--gold)",letterSpacing:".3em",marginBottom:10}}>◆ CREDITI CONTEXT</div>
-        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:300,color:"var(--text)",marginBottom:10}}>Sblocca i toni avanzati con i crediti</h2>
-        <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",lineHeight:1.8,marginBottom:22}}>Hai usato le 3 trasformazioni gratuite di oggi, oppure hai scelto un tono avanzato. Torna domani o usa crediti: nessun abbonamento, nessuna scadenza.</p>
+        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:300,color:"var(--text)",marginBottom:10}}>{isPro&&hasCreditLedger&&credits<=0 ? "Crediti esauriti" : "Sblocca i toni avanzati con i crediti"}</h2>
+        <p style={{fontFamily:"'JetBrains Mono',monospace",fontSize:"10px",color:"var(--sub)",lineHeight:1.8,marginBottom:22}}>{isPro&&hasCreditLedger&&credits<=0 ? "Hai terminato i crediti disponibili su questo dispositivo. Ricarica con un nuovo pacchetto per continuare a usare i toni avanzati: nessun abbonamento, nessuna scadenza." : "Hai usato le 3 trasformazioni gratuite di oggi, oppure hai scelto un tono avanzato. Torna domani o usa crediti: nessun abbonamento, nessuna scadenza."}</p>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:22}}>
           {[["◆","9 toni"],["∿","Toni avanzati"],["↺","Nessun abbonamento"],["∞","Senza scadenza"]].map(([ic,lb])=>(
             <div key={lb} style={{background:"#111120",border:"1px solid var(--border)",borderRadius:3,padding:12}}>
@@ -655,10 +754,10 @@ function MainApp() {
   );
 
   return (
-    <div style={{minHeight:"100vh",background:"var(--bg)",color:"var(--text)"}}>
+    <div className="app-shell">
       <style>{css}</style>
       {header}
-      {isPro&&step===0&&<div style={{textAlign:"center",padding:"9px",background:"#c8a84b0d",borderBottom:"1px solid #c8a84b20",fontFamily:"'JetBrains Mono',monospace",fontSize:"9px",color:"var(--gold)",letterSpacing:".2em"}}>◆ MODALITÀ CREDITI — TONI AVANZATI ATTIVI</div>}
+      {isPro&&step===0&&<div className="pro-banner" style={{background:hasCreditLedger&&credits<=0?"#e05c6b0d":"#c8a84b0d",borderBottomColor:hasCreditLedger&&credits<=0?"#e05c6b22":"#c8a84b20",color:hasCreditLedger&&credits<=0?"var(--red)":"var(--gold)"}}>◆ {hasCreditLedger ? `${credits} CREDITI RESIDUI` : "MODALITÀ CREDITI"} — {hasCreditLedger&&credits<=0 ? "RICARICA PER USARE I TONI AVANZATI" : "TONI AVANZATI ATTIVI"}</div>}
       {stepBar}
       <div style={{paddingBottom:40}}>
         {step===0&&step0}
