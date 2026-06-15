@@ -1,4 +1,4 @@
-const CACHE = 'context-v9-blog';
+const CACHE = 'context-v18-user-logo-menu-20260615';
 const STATIC = [
   '/',
   '/index.html',
@@ -13,9 +13,12 @@ const STATIC = [
   '/blog/index.html',
   '/blog/rispondere-messaggio-difficile-senza-sembrare-aggressivo.html',
   '/blog/scrivere-risposta-professionale-cliente-arrabbiato.html',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
   '/icons/favicon-64.png',
+  '/icons/context-logo-user-transparent.png',
+  '/icons/context-app-icon-20260611-clean.png',
+  '/icons/context-ui-icon-192-20260611-clean.png',
+  '/icons/context-ui-icon-512-20260611-clean.png',
+  '/social/logo-square-512.png',
   '/social/logo-tiktok-profile-1080.png',
   '/social/tiktok-cover-1920x1080.png'
 ];
@@ -56,7 +59,7 @@ self.addEventListener('fetch', e => {
 
   e.respondWith(
     caches.match(e.request).then(cached => {
-      if (cached) return cached;
+      if (cached && !url.pathname.startsWith('/icons/') && !url.pathname.startsWith('/social/')) return cached;
       return fetch(e.request).then(response => {
         if (url.origin === self.location.origin && response.ok) {
           const copy = response.clone();

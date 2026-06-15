@@ -118,7 +118,7 @@ function Splash({ onDone, duration=3800 }) {
       <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}>
         <div style={{background:"rgba(7,7,14,.72)",backdropFilter:"blur(18px)",WebkitBackdropFilter:"blur(18px)",border:"1px solid rgba(60,230,180,.12)",borderRadius:20,padding:"44px 52px 40px",display:"flex",flexDirection:"column",alignItems:"center",boxShadow:"0 8px 60px rgba(0,0,0,.6)",maxWidth:340,width:"85%"}}>
           <div style={{marginBottom:22,animation:"logoBreath 2.5s ease-in-out infinite alternate"}}>
-            <img src="/icons/context-app-icon-20260611-clean.png" alt="ConText" width="94" height="94" style={{display:"block",objectFit:"contain",filter:"drop-shadow(0 0 18px rgba(255,204,0,.38))"}} />
+            <img src="/icons/context-logo-user-transparent.png" alt="ConText" width="94" height="94" style={{display:"block",objectFit:"contain",filter:"drop-shadow(0 0 18px rgba(60,230,180,.20)) drop-shadow(0 0 16px rgba(255,204,0,.22))"}} />
           </div>
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:46,fontWeight:300,letterSpacing:".06em",lineHeight:1,marginBottom:16,animation:"fadeUp .8s ease .15s both",background:"linear-gradient(135deg,#3ce6b4 0%,#e8d890 50%,#5ac8ff 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>
             ConText
@@ -192,6 +192,7 @@ function MainApp() {
   const [installStatus, setInstallStatus] = useState("");
   const [history, setHistory]     = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const textareaRef               = useRef(null);
 
   const FREE_LIMIT = 3;
@@ -394,10 +395,14 @@ function MainApp() {
     .app-header{position:sticky;top:0;z-index:20;background:rgba(7,7,14,.88);border-bottom:1px solid var(--border);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
     .header-inner{max-width:1060px;margin:0 auto;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;}
     .brand{cursor:pointer;display:flex;align-items:center;gap:11px;min-width:190px;}
+    .brand-mark{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;background:linear-gradient(145deg,rgba(5,5,10,.96),rgba(16,16,28,.92));border:1px solid rgba(60,230,180,.18);box-shadow:0 0 0 1px rgba(200,168,75,.08),0 12px 32px rgba(0,0,0,.30);overflow:hidden;flex:0 0 auto;}
+    .brand-mark img{display:block;width:100%;height:100%;object-fit:contain;padding:2px;filter:drop-shadow(0 0 10px rgba(60,230,180,.18)) drop-shadow(0 0 8px rgba(255,204,0,.18));}
     .brand-kicker{font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--gold);letter-spacing:.28em;text-transform:uppercase;}
     .brand-name{font-family:'Cormorant Garamond',serif;font-size:25px;font-weight:300;color:var(--text);line-height:1;}
     .brand-name em{color:var(--gold);font-weight:400;}
     .top-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
+    .menu-toggle{display:none;background:linear-gradient(145deg,rgba(15,15,28,.94),rgba(9,9,18,.94));border:1px solid rgba(200,168,75,.28);color:var(--text);border-radius:999px;padding:9px 12px;align-items:center;gap:10px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;box-shadow:0 12px 32px rgba(0,0,0,.20);}
+    .menu-toggle-lines{display:flex;flex-direction:column;gap:4px;}.menu-toggle-lines span{display:block;width:17px;height:1px;background:var(--gold);transition:transform .18s,opacity .18s;}.menu-toggle.open .menu-toggle-lines span:nth-child(1){transform:translateY(5px) rotate(45deg);}.menu-toggle.open .menu-toggle-lines span:nth-child(2){opacity:0;}.menu-toggle.open .menu-toggle-lines span:nth-child(3){transform:translateY(-5px) rotate(-45deg);}
     .top-link,.credit-pill,.history-pill{background:rgba(15,15,28,.72);border:1px solid var(--border);color:var(--sub);padding:8px 11px;border-radius:999px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.11em;text-decoration:none;line-height:1;transition:all .16s;white-space:nowrap;}
     .top-link:hover,.history-pill:hover{color:var(--gold);border-color:#c8a84b55;transform:translateY(-1px);}
     .credit-pill{border-color:var(--gold);color:var(--gold);font-weight:700;background:#c8a84b10;}
@@ -449,40 +454,50 @@ function MainApp() {
     @media(max-width:800px){
       .app-header{overflow:hidden;}.header-inner,.top-actions,.step-wrap,.screen,.hero-layout{width:100%;max-width:100%;min-width:0;}.top-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}.top-actions>*{min-width:0;max-width:100%;white-space:normal;}.free-pill{grid-column:1 / span 1;text-align:center;}.credit-pill{grid-column:2 / span 1;}.step-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.step-label{font-size:7px;letter-spacing:.06em;}.hero-title{font-size:clamp(35px,10.8vw,43px);line-height:1.06;}.hero-title span{display:inline;}.lead{overflow-wrap:break-word;}.example-card,.trust-card,.info-card,.scenario-card,.message-summary,.input-card,.tone-card,.result-card{max-width:100%;}
     }
+    @media(max-width:800px){
+      .header-inner{padding:12px 14px;align-items:center;flex-direction:row;gap:10px;flex-wrap:wrap;}.brand{width:auto;flex:1 1 auto;min-width:0;gap:10px;}.brand-mark{width:40px!important;height:40px!important;border-radius:13px;}.brand-kicker{font-size:6.8px;letter-spacing:.20em;white-space:nowrap;}.brand-name{font-size:24px;}.menu-toggle{display:inline-flex;flex:0 0 auto;}.top-actions{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;width:100%;padding:12px;margin-top:4px;background:linear-gradient(145deg,rgba(12,12,24,.98),rgba(7,7,14,.98));border:1px solid rgba(60,230,180,.14);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.36);}.top-actions.open{display:grid;animation:menuReveal .18s ease both;}.top-link,.credit-pill,.history-pill{width:100%;padding:13px 10px;border-radius:12px;font-size:9px;letter-spacing:.12em;text-align:center;justify-content:center;background:rgba(255,255,255,.025);}.free-pill{grid-column:1 / -1;order:-2;text-align:center;padding:9px 10px;border-radius:999px;background:rgba(60,230,180,.08);border:1px solid rgba(60,230,180,.18);}.credit-pill{grid-column:1 / -1;order:-1;background:rgba(200,168,75,.12);}.app-header.menu-open{box-shadow:0 22px 60px rgba(0,0,0,.34);}
+    }
+    @keyframes menuReveal{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
   `;
 
   const Logo = ({size=28}) => (
-    <img src="/icons/context-app-icon-20260611-clean.png" alt="ConText" width={size} height={size} style={{display:"block",objectFit:"contain",filter:"drop-shadow(0 0 10px rgba(255,204,0,.22))"}} />
+    <span className="brand-mark" style={{width:size,height:size}}>
+      <img src="/icons/context-logo-user-transparent.png" alt="ConText" />
+    </span>
   );
 
   // ── HEADER ─────────────────────────────────────────────────────────────
   const header = (
-    <header className="app-header">
+    <header className={`app-header ${mobileMenuOpen ? "menu-open" : ""}`}>
       <div className="header-inner">
-        <div onClick={restart} className="brand" aria-label="Torna all'inizio di ConText">
-          <Logo size={30}/>
+        <div onClick={()=>{ restart(); setMobileMenuOpen(false); }} className="brand" aria-label="Torna all'inizio di ConText">
+          <Logo size={34}/>
           <div>
             <div className="brand-kicker">◆ Tone Intelligence</div>
             <div className="brand-name">Con<em>Text</em></div>
           </div>
         </div>
-        <div className="top-actions">
-          <a className="top-link" href="/blog/index.html" target="_blank" rel="noopener noreferrer" title="Leggi il blog ConText">Blog</a>
-          <a className="top-link" href="/guida.html" target="_blank" rel="noopener noreferrer" title="Apri la guida completa di ConText">Guida</a>
-          <a className="top-link" href="/attiva.html" target="_blank" rel="noopener noreferrer" title="Attiva un codice ConText">Attiva</a>
-          <button className="top-link" onClick={shareApp} title="Condividi ConText con altre persone" style={{color:shareStatus?"var(--teal)":"var(--sub)",borderColor:shareStatus?"#3ecfbe55":"var(--border)",background:shareStatus?"#3ecfbe10":"rgba(15,15,28,.72)"}}>{shareStatus||"Condividi"}</button>
-          <button className="top-link" onClick={()=>setShowInstall(true)} title="Installa ConText come app">Installa</button>
+        <button className={`menu-toggle ${mobileMenuOpen ? "open" : ""}`} onClick={()=>setMobileMenuOpen(v=>!v)} aria-expanded={mobileMenuOpen} aria-controls="main-navigation" aria-label="Apri o chiudi il menù principale">
+          <span className="menu-toggle-lines" aria-hidden="true"><span/><span/><span/></span>
+          Menu
+        </button>
+        <nav id="main-navigation" className={`top-actions ${mobileMenuOpen ? "open" : ""}`} aria-label="Navigazione principale">
+          <a className="top-link" onClick={()=>setMobileMenuOpen(false)} href="/blog/index.html" target="_blank" rel="noopener noreferrer" title="Leggi il blog ConText">Blog</a>
+          <a className="top-link" onClick={()=>setMobileMenuOpen(false)} href="/guida.html" target="_blank" rel="noopener noreferrer" title="Apri la guida completa di ConText">Guida</a>
+          <a className="top-link" onClick={()=>setMobileMenuOpen(false)} href="/attiva.html" target="_blank" rel="noopener noreferrer" title="Attiva un codice ConText">Attiva</a>
+          <button className="top-link" onClick={()=>{ shareApp(); setMobileMenuOpen(false); }} title="Condividi ConText con altre persone" style={{color:shareStatus?"var(--teal)":"var(--sub)",borderColor:shareStatus?"#3ecfbe55":"var(--border)",background:shareStatus?"#3ecfbe10":"rgba(15,15,28,.72)"}}>{shareStatus||"Condividi"}</button>
+          <button className="top-link" onClick={()=>{ setShowInstall(true); setMobileMenuOpen(false); }} title="Installa ConText come app">Installa</button>
           {isPro&&(
-            <button className="history-pill" onClick={()=>setShowHistory(h=>!h)} style={{background:showHistory?"#c8a84b18":"rgba(15,15,28,.72)",borderColor:showHistory?"#c8a84b55":"var(--border)",color:showHistory?"var(--gold)":"var(--sub)"}}>↺ Storia</button>
+            <button className="history-pill" onClick={()=>{ setShowHistory(h=>!h); setMobileMenuOpen(false); }} style={{background:showHistory?"#c8a84b18":"rgba(15,15,28,.72)",borderColor:showHistory?"#c8a84b55":"var(--border)",color:showHistory?"var(--gold)":"var(--sub)"}}>↺ Storia</button>
           )}
           {isPro&&hasCreditLedger&&(
             <div className="free-pill" style={{color:credits>0?"var(--teal)":"var(--red)"}} title="Crediti residui per i toni avanzati">{credits} crediti</div>
           )}
           {!isPro&&<div className="free-pill">{remaining} gratis oggi</div>}
-          <button onClick={()=>setShowPaywall(true)} className="credit-pill" style={{background:isPro?"var(--gold)":"#c8a84b10",color:isPro?"#07070e":"var(--gold)"}}>
+          <button onClick={()=>{ setShowPaywall(true); setMobileMenuOpen(false); }} className="credit-pill" style={{background:isPro?"var(--gold)":"#c8a84b10",color:isPro?"#07070e":"var(--gold)"}}>
             {isPro ? (hasCreditLedger ? "RICARICA" : "✓ CREDITI") : "CREDITI"}
           </button>
-        </div>
+        </nav>
       </div>
     </header>
   );
