@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://con-text-app.vercel.app/sitemap.xml
