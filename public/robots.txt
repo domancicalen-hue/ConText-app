@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://con-text-app.vercel.app/sitemap.xml
+Sitemap: https://con-text-app.vercel.app/sitemap-gsc-20260620.xml
